@@ -1,7 +1,8 @@
 #include "telemetry.h"
+#include <Arduino.h>
 
 void initTelemetry() {
-    Serial2.begin(9600);  // Assuming telemetry on Serial2
+    Serial2.begin(9600);
 }
 
 void sendTelemetry() {

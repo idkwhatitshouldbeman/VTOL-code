@@ -4,4 +4,4 @@
 void initTelemetry();
 void sendTelemetry();
 
-#endif
+#endif // TELEMETRY_H
