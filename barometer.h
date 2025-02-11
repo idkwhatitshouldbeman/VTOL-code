@@ -4,4 +4,4 @@
 void initBarometer();
 float readBarometer();
 
-#endif // BAROMETER_H
+#endif

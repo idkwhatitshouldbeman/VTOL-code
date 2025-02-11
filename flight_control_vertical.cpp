@@ -1,71 +1,61 @@
-#include "VerticalFlightController.h"
+// flight_control_vertical.cpp
 
-// Constructor
-VerticalFlightController::VerticalFlightController() {
-    altitudePID = {0.8, 0.3, 0};  // Example PD values for altitude
-    attitudePID = {1.2, 0.5, 0};  // Example PD values for attitude (pitch/roll)
+#include "flight_control_vertical.h"
+#include "motors.h"
+#include "barometer.h"
+#include "gyroscope.h"
+
+// PD Gains for vertical control
+#define KP_ALTITUDE  1.2
+#define KD_ALTITUDE  0.5
+#define KP_ORIENTATION  1.4
+#define KD_ORIENTATION  0.6
+
+// Desired setpoints
+float desiredAltitude = 0.0;
+float desiredPitch = 0.0;
+float desiredRoll = 0.0;
+
+void initVerticalController() {
+    initBarometer();      // Initialize barometer for altitude tracking
+    initMotors();         // Initialize motors
+    initGyroscope();      // Initialize gyroscope for orientation stability
 }
 
-// Initialize sensors, motors, etc.
-void VerticalFlightController::initialize() {
-    // Add setup code here if needed
-    Serial.begin(9600);  // Example: Initialize serial communication
+void updateVerticalControl() {
+    // Get current altitude
+    float currentAltitude = readBarometer();
+
+    // Get current orientation
+    float currentPitch = getPitch();
+    float currentRoll = getRoll();
+
+    // Altitude error
+    float errorAltitude = desiredAltitude - currentAltitude;
+
+    // Orientation errors
+    float errorPitch = desiredPitch - currentPitch;
+    float errorRoll = desiredRoll - currentRoll;
+
+    // PD Control for altitude
+    float controlAltitude = KP_ALTITUDE * errorAltitude - KD_ALTITUDE * getAltitudeRate();
+
+    // PD Control for orientation
+    float controlPitch = KP_ORIENTATION * errorPitch - KD_ORIENTATION * getPitchRate();
+    float controlRoll = KP_ORIENTATION * errorRoll - KD_ORIENTATION * getRollRate();
+
+    // Apply control to motors (example mapping)
+    setMotorPower(0, controlAltitude + controlPitch + controlRoll);
+    setMotorPower(1, controlAltitude - controlPitch + controlRoll);
+    setMotorPower(2, controlAltitude + controlPitch - controlRoll);
+    setMotorPower(3, controlAltitude - controlPitch - controlRoll);
 }
 
-// Main control loop
-FlightData VerticalFlightController::update(float targetAltitude, float currentAltitude, float pitch, float roll, float yaw) {
-    FlightData data;
-
-    // Calculate errors
-    float altitudeError = targetAltitude - currentAltitude;
-    float pitchError = 0 - pitch;  // We want pitch to be level (0 degrees)
-    float rollError = 0 - roll;    // We want roll to be level (0 degrees)
-
-    // Apply PD control
-    float altitudeControl = calculatePID(altitudePID, targetAltitude, currentAltitude);
-    float pitchControl = calculatePID(attitudePID, 0, pitch);
-    float rollControl = calculatePID(attitudePID, 0, roll);
-
-    // Adjust motor power based on control signals
-    data.motorPower[0] = constrain(altitudeControl - pitchControl + rollControl, 0, 255);
-    data.motorPower[1] = constrain(altitudeControl + pitchControl - rollControl, 0, 255);
-    data.motorPower[2] = constrain(altitudeControl + pitchControl + rollControl, 0, 255);
-    data.motorPower[3] = constrain(altitudeControl - pitchControl - rollControl, 0, 255);
-
-    // Set servo angles (keep them level for now)
-    data.tiltServoAngles[0] = 90;
-    data.tiltServoAngles[1] = 90;
-
-    data.controlServoAngles[0] = 90;
-    data.controlServoAngles[1] = 90;
-    data.controlServoAngles[2] = 90;
-    data.controlServoAngles[3] = 90;
-
-    adjustMotorsAndServos(data);
-    return data;
+void setDesiredAltitude(float altitude) {
+    desiredAltitude = altitude;
 }
 
-// PD calculation function
-float VerticalFlightController::calculatePID(PID& pid, float setpoint, float measuredValue) {
-    float error = setpoint - measuredValue;
-    float derivative = error - pid.previous_error;
-    pid.previous_error = error;
-
-    return (pid.kp * error) + (pid.kd * derivative);
-}
-
-// Control motors and servos
-void VerticalFlightController::adjustMotorsAndServos(const FlightData& data) {
-    for (int i = 0; i < 4; i++) {
-        analogWrite(i + 3, data.motorPower[i]);  // Example: Motors on pins 3,4,5,6
-        Serial.print("Motor "); Serial.print(i); Serial.print(": "); Serial.println(data.motorPower[i]);
-    }
-
-    for (int j = 0; j < 2; j++) {
-        analogWrite(j + 7, data.tiltServoAngles[j]); // Example: Tilt servos on pins 7,8
-    }
-
-    for (int k = 0; k < 4; k++) {
-        analogWrite(k + 9, data.controlServoAngles[k]); // Control surfaces on pins 9-12
-    }
+void setDesiredOrientation(float pitch, float roll) {
+    desiredPitch = pitch;
+    desiredRoll = roll;
 }

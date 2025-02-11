@@ -1,23 +1,61 @@
+// flight_control_horizontal.cpp
+
 #include "flight_control_horizontal.h"
+#include "motors.h"
+#include "gps.h"
+#include "gyroscope.h"
 
-float Kp_pitch = 1.2;
-float Kd_pitch = 0.4;
+// PD Gains for horizontal control
+#define KP_POSITION  1.0
+#define KD_POSITION  0.3
+#define KP_ORIENTATION  1.5
+#define KD_ORIENTATION  0.4
 
-float prevPitchError = 0;
+// Desired setpoints
+float desiredLatitude = 0.0;
+float desiredLongitude = 0.0;
+float desiredHeading = 0.0;
 
-void initHorizontalControl() {
-    // Initialize sensors for horizontal flight
+void initHorizontalController() {
+    initGPS();            // Initialize GPS for position tracking
+    initMotors();         // Initialize motors
+    initGyroscope();      // Initialize gyroscope for heading stability
 }
 
-void horizontalFlightControl() {
-    float currentPitch = readIMU();   // Example sensor
-    float targetPitch = 0.0;          // Level flight
+void updateHorizontalControl() {
+    // Get current GPS coordinates
+    float currentLat = getLatitude();
+    float currentLon = getLongitude();
+    
+    // Get current heading
+    float currentHeading = getHeading();
 
-    float error = targetPitch - currentPitch;
-    float derivative = error - prevPitchError;
+    // Position error
+    float errorLat = desiredLatitude - currentLat;
+    float errorLon = desiredLongitude - currentLon;
 
-    float output = (Kp_pitch * error) + (Kd_pitch * derivative);
+    // Orientation error
+    float errorHeading = desiredHeading - currentHeading;
 
-    adjustElevons(output);  // Apply PD output to control surfaces
-    prevPitchError = error;
+    // PD Control for position
+    float controlLat = KP_POSITION * errorLat - KD_POSITION * getLatitudeRate();
+    float controlLon = KP_POSITION * errorLon - KD_POSITION * getLongitudeRate();
+
+    // PD Control for heading
+    float controlHeading = KP_ORIENTATION * errorHeading - KD_ORIENTATION * getHeadingRate();
+
+    // Apply control to motors (example mapping)
+    setMotorPower(0, controlLat + controlHeading);
+    setMotorPower(1, controlLon - controlHeading);
+    setMotorPower(2, controlLat - controlHeading);
+    setMotorPower(3, controlLon + controlHeading);
+}
+
+void setDesiredPosition(float lat, float lon) {
+    desiredLatitude = lat;
+    desiredLongitude = lon;
+}
+
+void setDesiredHeading(float heading) {
+    desiredHeading = heading;
 }
